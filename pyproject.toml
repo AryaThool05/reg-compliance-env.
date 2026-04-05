@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reg-compliance-env"
+version = "1.0.0"
+description = "A GDPR regulatory compliance checker OpenEnv environment"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+  {name = "Arya Thool", email = "[EMAIL_ADDRESS]"}
+]
+keywords = ["openenv", "gdpr", "compliance", "rl", "agent"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "openai>=1.0.0",
+  "pydantic>=2.0.0",
+  "firecrawl-py>=0.0.16",
+  "fastapi>=0.104.0",
+  "uvicorn>=0.24.0",
+  "pyyaml>=6.0",
+  "httpx>=0.25.0",
+  "python-multipart>=0.0.6",
+  "openenv-core",
+]
+
+[project.urls]
+Homepage = "https://huggingface.co/spaces/aryathool3/reg-compliance-env"
+Repository = "https://github.com/AryaThool05/reg-compliance-env..git"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["reg_compliance_env*", "tasks*", "graders*"]
+
+[tool.openenv]
+environment = "reg_compliance_env"
+server_dir = "server"
