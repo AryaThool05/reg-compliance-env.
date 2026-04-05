@@ -41,3 +41,6 @@ include = ["reg_compliance_env*", "tasks*", "graders*"]
 [tool.openenv]
 environment = "reg_compliance_env"
 server_dir = "server"
+
+[project.scripts]
+server = "server.app:main"

@@ -2,7 +2,7 @@ name: reg-compliance-env
 version: "1.0.0"
 description: "A GDPR regulatory compliance checker environment where an AI agent audits privacy policies against EU GDPR articles and identifies violations."
 author: "Arya Thool"
-space_url: "https://huggingface.co/spaces/aryathool3/reg-compliance-env"
+space_url: "https://aryathool3-reg-compliance-env.hf.space"
 tags: ["compliance", "gdpr", "legal", "nlp", "openenv"]
 
 action_space:
