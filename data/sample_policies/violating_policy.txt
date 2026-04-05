@@ -1,0 +1,39 @@
+PRIVACY POLICY — QuickGrab App
+
+Last Updated: Sometime in 2024
+
+1. ABOUT US
+
+QuickGrab ("we", "the app") is a mobile shopping application. By using our app you agree to this policy.
+
+2. DATA WE COLLECT
+
+We collect whatever information is needed to make the app work. This includes but is not limited to your name, email, phone number, location data, contacts list, browsing history, purchase history, device information, and any other data our systems automatically gather. We may also collect information from your social media profiles if you connect them.
+
+3. HOW WE USE YOUR DATA
+
+We use your data as we see fit to improve our services, personalise your experience, and grow our business. This may include analysing your behaviour, building advertising profiles, and training machine learning models. We reserve the right to use your data for any future purpose that supports our business objectives.
+
+4. SHARING YOUR DATA
+
+We share your data with our partners, affiliates, and selected third parties who help us operate. These partners may use your data for their own purposes. We work with various advertising networks and data brokers to maximise the value of the information we collect. A full list of partners is not available at this time.
+
+5. DATA STORAGE
+
+Your data is stored on our servers and the servers of our partners. We keep your data for as long as we find it useful. Even if you delete your account, we may retain certain information indefinitely for our records and analytics purposes.
+
+6. COOKIES AND TRACKING
+
+We use cookies, pixel tags, device fingerprinting, and other tracking technologies extensively. By using our app, you consent to all tracking. There is no option to opt out of essential tracking.
+
+7. CHILDREN
+
+Our app is not intended for children under 13, but we do not actively verify age.
+
+8. CHANGES TO THIS POLICY
+
+We may update this policy at any time without notice. Continued use of the app constitutes acceptance of any changes.
+
+9. CONTACT
+
+For questions, email support@quickgrabapp.com. Response times may vary.

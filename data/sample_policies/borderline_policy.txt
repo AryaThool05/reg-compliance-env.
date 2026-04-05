@@ -1,0 +1,61 @@
+PRIVACY POLICY — NovaPulse Analytics Platform
+
+Effective Date: 15 March 2025
+
+1. INTRODUCTION
+
+NovaPulse Analytics ("NovaPulse", "we") provides a business intelligence platform for mid-market companies. We are committed to protecting your privacy and complying with the General Data Protection Regulation (GDPR) and other applicable data protection laws.
+
+2. DATA CONTROLLER
+
+NovaPulse Analytics B.V., registered in Amsterdam, the Netherlands (KvK 78451239), acts as the data controller. For privacy matters, you may write to compliance@novapulse.io.
+
+3. WHAT DATA WE PROCESS
+
+We process personal data necessary to provide our platform, including:
+  - Account details (name, company, email, role)
+  - Platform usage and interaction data
+  - Technical data (IP address, browser type, session duration)
+  - Billing and invoicing information
+
+4. LEGAL BASIS
+
+We generally process your data based on the contractual relationship you have with us and, where applicable, your consent. In some cases, we rely on our legitimate interests to improve our services. We aim to ensure that all processing activities have an appropriate legal basis under GDPR Article 6, though specific mappings per processing activity are still being finalised internally.
+
+5. DATA RETENTION
+
+We retain personal data for a reasonable period based on the nature of the data and our business needs:
+  - Active account data: retained while your subscription is active.
+  - Post-cancellation: account data is retained for up to 24 months for potential reactivation and support purposes.
+  - Financial records: retained as required by Dutch commercial law.
+
+We are currently developing automated deletion procedures and expect to have these in place by Q4 2026.
+
+6. YOUR RIGHTS
+
+Under GDPR, you have certain rights regarding your personal data, including the right to access, correct, and in some circumstances, delete your data. We acknowledge the right to erasure under Article 17; however, our internal processes for handling erasure requests are under development. In the interim, erasure requests can be submitted to compliance@novapulse.io and will be handled on a case-by-case basis within a reasonable timeframe.
+
+You also have the right to data portability, the right to restrict processing, and the right to object. We are working to implement self-service tools for exercising these rights in our dashboard.
+
+7. DATA SHARING
+
+We use the following categories of service providers:
+  - Cloud infrastructure (AWS, EU region)
+  - Payment processor (Adyen)
+  - Customer support (Zendesk)
+  - Analytics (internal tooling, with some data shared with a third-party analytics partner for benchmarking)
+
+We require data processing agreements with all providers, though onboarding of some newer vendors is still in progress.
+
+8. INTERNATIONAL TRANSFERS
+
+Some data may be processed outside the EEA. We rely on Standard Contractual Clauses where applicable, though transfer impact assessments for all destinations have not yet been completed.
+
+9. SECURITY
+
+We implement industry-standard security measures, including encryption, access controls, and regular security reviews.
+
+10. CONTACT
+
+For privacy questions: compliance@novapulse.io
+NovaPulse Analytics B.V., Herengracht 182, 1016 BR Amsterdam, the Netherlands

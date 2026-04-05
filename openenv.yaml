@@ -1,0 +1,62 @@
+name: reg-compliance-env
+version: "1.0.0"
+description: "A GDPR regulatory compliance checker environment where an AI agent audits privacy policies against EU GDPR articles and identifies violations."
+author: "Arya Thool"
+space_url: "https://huggingface.co/spaces/aryathool3/reg-compliance-env"
+tags: ["compliance", "gdpr", "legal", "nlp", "openenv"]
+
+action_space:
+  type: object
+  properties:
+    violation_ids:
+      type: array
+      items:
+        type: string
+      description: "List of violation identifiers found (e.g. ART6-CONSENT)"
+    severity:
+      type: string
+      enum: ["none", "low", "medium", "high"]
+    explanation:
+      type: string
+    fix_suggestion:
+      type: string
+      nullable: true
+
+observation_space:
+  type: object
+  properties:
+    regulation_text:
+      type: string
+    policy_clause:
+      type: string
+    task_id:
+      type: string
+    article_ref:
+      type: string
+    context:
+      type: object
+
+tasks:
+  - id: easy
+    name: "Single clause violation check"
+    description: "Check one policy clause against GDPR Article 6"
+    difficulty: easy
+    max_steps: 1
+    success_threshold: 0.5
+  - id: medium
+    name: "Full privacy policy GDPR audit"
+    description: "Audit entire privacy policy against GDPR Articles 5, 6, 13"
+    difficulty: medium
+    max_steps: 1
+    success_threshold: 0.5
+  - id: hard
+    name: "Policy version delta and remediation"
+    description: "Compare two policy versions, find fixed/new violations, suggest fixes"
+    difficulty: hard
+    max_steps: 1
+    success_threshold: 0.5
+
+reward:
+  min: 0.0
+  max: 1.0
+  description: "F1-based score with partial credit for precision and recall"
