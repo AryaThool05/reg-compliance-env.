@@ -11,7 +11,7 @@ Or:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -108,14 +108,15 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/reset")
-async def reset(body: ResetRequest) -> dict[str, Any]:
+async def reset(body: Optional[ResetRequest] = None) -> dict[str, Any]:
     """Reset the environment for a new episode.
 
     Accepts an optional ``task`` field (defaults to ``"easy"``).
-    Returns the initial observation as a dict.
+    Body itself is optional — an empty POST defaults to task="easy".
     """
+    task = body.task if body else "easy"
     try:
-        result = await env.reset(task=body.task)
+        result = await env.reset(task=task)
         return {
             "observation": result.observation.model_dump(),
             "info": result.info,
