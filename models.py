@@ -44,28 +44,24 @@ class Observation(BaseModel):
     )
 
     def to_prompt(self) -> str:
-        """Return a clean, human-readable prompt string for LLM input.
+        """Return a clean, human-readable prompt string for LLM input."""
+        return f"""You are a GDPR compliance expert. Analyze the following and identify violations.
 
-        The prompt is formatted so the model can clearly distinguish the
-        regulation from the policy clause and understand its task.
-        """
-        lines = [
-            f"=== GDPR Compliance Check ({self.article_ref}) ===",
-            f"Difficulty: {self.task_id}",
-            "",
-            "--- Regulation Text ---",
-            self.regulation_text.strip(),
-            "",
-            "--- Company Policy Clause ---",
-            self.policy_clause.strip(),
-            "",
-            "Analyze the policy clause above for potential GDPR violations "
-            "against the referenced regulation. Identify specific violation "
-            "IDs, assess severity, provide an explanation, and suggest fixes.",
-        ]
-        if self.context:
-            lines.insert(3, f"Context: {self.context}")
-        return "\n".join(lines)
+GDPR REGULATION REFERENCE:
+{self.regulation_text[:2000]}  
+
+TASK (Article reference: {self.article_ref}):
+{self.policy_clause}
+
+Respond in this EXACT JSON format:
+{{
+  "violation_ids": ["ART6-CONSENT", "ART5-RETENTION"],
+  "severity": "high",
+  "explanation": "The policy lacks explicit consent mechanism under Art 6...",
+  "fix_suggestion": "Add explicit opt-in consent checkbox and state retention periods"
+}}
+
+Only output valid JSON. No markdown, no extra text."""
 
 
 # ---------------------------------------------------------------------------

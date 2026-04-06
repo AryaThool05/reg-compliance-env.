@@ -43,22 +43,30 @@ class TaskHard:
 
         regulation_text = "\n\n".join(parts)
 
-        policy_clause = (
-            f"VERSION 1:\n{policy_v1}\n\n"
-            f"VERSION 2:\n{policy_v2}"
-        )
+        policy_clause = f"""
+TASK: Compare these two versions of a privacy policy and identify GDPR violations.
+
+You MUST:
+1. List ALL violation IDs you find in EITHER version (e.g. ART6-CONSENT, ART5-RETENTION)
+2. State which violations were FIXED between v1 and v2
+3. State which violations are NEW in v2
+4. Provide a fix_suggestion for remaining violations
+
+POLICY VERSION 1 (original):
+{policy_v1}
+
+POLICY VERSION 2 (updated):
+{policy_v2}
+
+Identify all GDPR violations using IDs like ART5-PURPOSE, ART6-LAWFUL-BASIS, ART13-TRANSPARENCY etc.
+""".strip()
 
         return Observation(
             regulation_text=regulation_text,
             policy_clause=policy_clause,
             task_id="hard",
-            article_ref="Articles 5-17",
-            context={
-                "source": "sample_policy_delta",
-                "policy_v1": self.POLICY_V1_PATH.name,
-                "policy_v2": self.POLICY_V2_PATH.name,
-                "difficulty": "hard",
-            },
+            article_ref="Articles 5,6,7,12,13,17",
+            context={"v1_length": len(policy_v1), "v2_length": len(policy_v2)}
         )
 
     @staticmethod
