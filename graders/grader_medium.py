@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from models import Action, Reward
+from graders.utils import safe_score
 
 
 def grade_medium(action: Action, ground_truth: dict[str, Any]) -> Reward:
@@ -37,7 +38,7 @@ def grade_medium(action: Action, ground_truth: dict[str, Any]) -> Reward:
                 break
     
     total_concepts = len(EXPECTED_CONCEPTS)
-    recall = matched_concepts / total_concepts if total_concepts else 0.0
+    recall = matched_concepts / total_concepts if total_concepts else 0.05
     
     # Precision: what fraction of agent's flags are valid
     valid_flags = 0
@@ -47,15 +48,16 @@ def grade_medium(action: Action, ground_truth: dict[str, Any]) -> Reward:
                 valid_flags += 1
                 break
     
-    precision = valid_flags / len(predicted) if predicted else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    precision = valid_flags / len(predicted) if predicted else 0.05
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.05
     
     # Penalty for excessive false flags
-    score = f1
+    score = f1 * 0.94 + 0.03
     if len(predicted) > len(EXPECTED_CONCEPTS) + 3:
         score -= 0.1
     
-    score = max(0.0, min(1.0, score))
+    score = max(0.001, min(0.999, score))
+    score = safe_score(score)
     
     return Reward(
         score=score,

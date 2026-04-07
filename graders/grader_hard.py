@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from models import Action, Reward
+from graders.utils import safe_score
 
 
 def _overlap(predicted: list[str], expected: list[str]) -> int:
@@ -34,38 +35,39 @@ def grade_hard(action: Action, ground_truth: dict[str, Any]) -> Reward:
 
     # --- Dimension 1: fixed violations ---
     if fixed:
-        score1 = _overlap(action.violation_ids, fixed) / len(fixed)
+        score1 = min(_overlap(action.violation_ids, fixed) / len(fixed), 0.9)
     else:
         # No fixed violations expected; reward if agent also found none matching
-        score1 = 1.0
+        score1 = 0.9
 
     # --- Dimension 2: new violations ---
     if new:
-        score2 = _overlap(action.violation_ids, new) / len(new)
+        score2 = min(_overlap(action.violation_ids, new) / len(new), 0.9)
     else:
         # No new violations expected — full credit if agent didn't hallucinate new ones
         # (we can't perfectly distinguish "new" from agent output, so give full credit)
-        score2 = 1.0
+        score2 = 0.9
 
     # --- Dimension 3: fix suggestion quality ---
     if action.fix_suggestion and len(action.fix_suggestion) > 50:
-        score3 = 1.0
+        score3 = 0.9
     elif action.fix_suggestion:
         score3 = 0.3
     else:
-        score3 = 0.0
+        score3 = 0.05
 
     # Weighted final score
     final_score = 0.35 * score1 + 0.35 * score2 + 0.30 * score3
-    final_score = max(0.0, min(1.0, final_score))
+    final_score = max(0.001, min(0.999, final_score))
+    final_score = safe_score(final_score)
 
     # Metrics (treat all violation_ids as a single set for P/R)
     all_expected = set(fixed + new + ground_truth.get("remaining_violations", []))
     predicted = set(action.violation_ids)
     tp = len(all_expected & predicted)
-    precision = tp / len(predicted) if predicted else 0.0
-    recall = tp / len(all_expected) if all_expected else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    precision = tp / len(predicted) if predicted else 0.05
+    recall = tp / len(all_expected) if all_expected else 0.05
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.05
 
     return Reward(
         score=final_score,

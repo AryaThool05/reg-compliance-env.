@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from models import Action, Reward
+from graders.utils import safe_score
 
 
 def grade_easy(action: Action, ground_truth: dict[str, Any]) -> Reward:
@@ -22,28 +23,28 @@ def grade_easy(action: Action, ground_truth: dict[str, Any]) -> Reward:
 
     Precision / recall are computed over violation identification.
     """
-    score = 0.0
+    score = 0.05
     violation_flag = 0.0
     article_cite = 0.0
 
-    # +0.5 if any violation was found
+    # +0.45 if any violation was found
     if action.violation_ids:
-        score += 0.5
-        violation_flag = 0.5
+        score += 0.45
+        violation_flag = 0.45
 
-    # +0.5 if "6" appears in any violation_id string
+    # +0.45 if "6" appears in any violation_id string
     if any("6" in vid for vid in action.violation_ids):
-        score += 0.5
-        article_cite = 0.5
+        score += 0.45
+        article_cite = 0.45
 
     # Precision: perfect if exactly 1 violation reported, otherwise partial
     if action.violation_ids:
-        precision = 1.0 if len(action.violation_ids) == 1 else 0.5
+        precision = 0.95 if len(action.violation_ids) == 1 else 0.5
     else:
-        precision = 0.0
+        precision = 0.05
 
     # Recall: 1.0 if at least one violation found, else 0.0
-    recall = 1.0 if action.violation_ids else 0.0
+    recall = 0.95 if action.violation_ids else 0.05
 
     # F1
     if precision + recall > 0:
@@ -52,7 +53,8 @@ def grade_easy(action: Action, ground_truth: dict[str, Any]) -> Reward:
         f1 = 0.0
 
     # Clamp score
-    score = max(0.0, min(1.0, score))
+    score = max(0.001, min(0.999, score))
+    score = safe_score(score)
 
     return Reward(
         score=score,
