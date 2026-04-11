@@ -2,17 +2,22 @@
 server/environment.py — RegComplianceEnvironment
 
 Standalone implementation with NO openenv.core imports.
-Bypasses create_app entirely to avoid hidden framework requirements.
 
 Return type contract:
 - reset()  → RegComplianceObservation (Pydantic model, NEVER dict)
 - step()   → StepResult (.observation, .reward, .done, .info)
 - state    → RegComplianceState (property, Pydantic model)
+
+CRITICAL: All reward values are DISCRETE HARDCODED CONSTANTS from the
+set {0.10, 0.15, 0.28, 0.30, 0.35, 0.46, 0.50, 0.55, 0.64, 0.70, 0.80,
+0.82, 0.85, 0.90}. No floating-point arithmetic in graders — mathematically
+impossible to produce 0.0 or 1.0 regardless of LLM output.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import uuid
@@ -143,14 +148,13 @@ def safe_score(s) -> float:
     """
     STRICT: score must be > 0.0 AND < 1.0.
     0.0 and 1.0 are both INVALID — Phase 2 validator rejects them.
-    Double-guarded: boundary checked before AND after rounding.
+    Double-guarded: NaN/inf handled, boundary checked before and after rounding.
     """
     try:
         s = float(s)
     except Exception:
         return 0.05
-    # NaN and ±inf must be caught first — NaN comparisons always return False
-    import math
+    # NaN and ±inf: must be caught before comparisons (NaN comparisons always False)
     if not math.isfinite(s):
         return 0.95 if s > 0 else 0.05
     # Pre-rounding boundary check
@@ -158,9 +162,9 @@ def safe_score(s) -> float:
         return 0.05
     if s >= 1.0:
         return 0.95
-    # Round to 4 decimal places — can shift 0.99995 → 1.0
+    # Round to 4dp — can shift 0.99995 → 1.0
     result = round(s, 4)
-    # Post-rounding boundary check (float precision safety)
+    # Post-rounding boundary check
     if result <= 0.0:
         return 0.05
     if result >= 1.0:
@@ -342,84 +346,87 @@ class RegComplianceEnvironment:
             )
 
     def _grade(self, action: RegComplianceAction) -> float:
-        """Score the action. Every path anchored away from 0.0 and 1.0 boundaries."""
+        """Score the action using DISCRETE HARDCODED CONSTANTS only.
+
+        All return values come from the fixed set:
+        {0.10, 0.15, 0.28, 0.30, 0.35, 0.46, 0.50, 0.55, 0.64, 0.70, 0.80, 0.82, 0.85, 0.90}
+
+        No floating-point arithmetic — impossible to produce 0.0 or 1.0.
+        safe_score() is still applied as belt-and-suspenders.
+        """
         violations = [v.upper() for v in (action.violation_ids or [])]
+        has_violations = bool(violations)
+        explanation_len = len((action.explanation or "").strip())
+        fix_len = len((action.fix_suggestion or "").strip())
 
         if self._current_task == "easy":
-            # Base always 0.05 — guarantees never 0.0
-            found_violation = any(
+            # Discrete score table — 4 states, all strictly in (0.10, 0.90)
+            found = has_violations and any(
                 kw in v for v in violations
                 for kw in ("ART6", "CONSENT", "LAWFUL", "GDPR", "BASIS")
             )
-            has_explanation = (
-                bool(action.explanation)
-                and len(action.explanation.strip()) > 5
-            )
-            score = 0.05  # floor — never 0.0
-            if found_violation:
-                score += 0.45
-            if has_explanation:
-                score += 0.40
-            if action.violation_ids:  # any violation submitted at all
-                score += 0.05
-            # Range: 0.05 (nothing) → 0.95 (all three) — boundaries unreachable
-            return safe_score(score)
+            long_explanation = explanation_len > 20
+
+            if found and long_explanation:
+                return safe_score(0.85)   # best: right violation + good explanation
+            elif found and not long_explanation:
+                return safe_score(0.55)   # right violation, weak explanation
+            elif not found and long_explanation:
+                return safe_score(0.35)   # wrong violation IDs but tried
+            elif has_violations:          # submitted something, wrong category
+                return safe_score(0.15)   # any submission = above floor
+            else:
+                return safe_score(0.10)   # nothing at all
 
         elif self._current_task == "medium":
             if not violations:
-                return 0.05  # explicit: no violations = floor, not 0.0
+                return safe_score(0.10)   # no violations = floor, NOT 0.0
 
-            concepts = [
+            # Count matched GDPR concept groups
+            concept_groups = [
                 ("ART5", "PURPOSE", "MINIMIS", "RETENTION", "STORAGE"),
                 ("ART6", "LAWFUL", "CONSENT", "BASIS", "PROCESS"),
                 ("ART13", "TRANSPARENT", "INFORM", "NOTICE", "DISCLOS"),
                 ("ART17", "ERASURE", "DELET", "REMOV", "FORGET"),
             ]
             matched = sum(
-                1 for kws in concepts
+                1 for kws in concept_groups
                 if any(any(kw in v for kw in kws) for v in violations)
             )
-            # recall: protected minimum 0.05 — never 0.0
-            recall = max(0.05, matched / len(concepts))
 
-            valid = sum(
-                1 for v in violations
-                if any(any(kw in v for kw in kws) for kws in concepts)
-            )
-            # precision: protected minimum 0.05 — never 0.0
-            precision = max(0.05, valid / len(violations))
-
-            f1 = 2 * precision * recall / (precision + recall)
-            # Map f1 [0,1] → [0.08, 0.92] — mathematically impossible to hit boundaries
-            score = 0.08 + (f1 * 0.84)
-            return safe_score(score)
+            # Discrete lookup — 5 states, all strictly in (0.08, 0.92)
+            discrete_scores = {0: 0.10, 1: 0.30, 2: 0.50, 3: 0.70, 4: 0.82}
+            return safe_score(discrete_scores[matched])
 
         else:  # hard
-            # Each dimension: minimum 0.10, maximum 0.90 — boundaries unreachable
+            # Each dimension returns exactly one of {0.10, 0.55, 0.90}
+            # Combined range: [0.10, 0.90] — never reaches boundaries
+
+            # Dimension 1: violation coverage
             if len(violations) >= 3:
                 dim1 = 0.90
             elif len(violations) >= 1:
                 dim1 = 0.55
             else:
-                dim1 = 0.10  # not 0.0
+                dim1 = 0.10
 
-            fix_len = len(action.fix_suggestion.strip()) if action.fix_suggestion else 0
-            if fix_len > 100:
+            # Dimension 2: fix suggestion quality
+            if fix_len >= 80:
                 dim2 = 0.90
-            elif fix_len > 30:
+            elif fix_len >= 20:
                 dim2 = 0.55
             else:
-                dim2 = 0.10  # not 0.0
+                dim2 = 0.10
 
-            exp_len = len(action.explanation.strip()) if action.explanation else 0
-            if exp_len > 100:
+            # Dimension 3: explanation quality
+            if explanation_len >= 80:
                 dim3 = 0.90
-            elif exp_len > 30:
+            elif explanation_len >= 20:
                 dim3 = 0.55
             else:
-                dim3 = 0.10  # not 0.0
+                dim3 = 0.10
 
-            # raw range: [0.10, 0.90] — mathematically impossible to reach 0 or 1
+            # Weighted combination: range [{0.40+0.35+0.25}*0.10, {..}*0.90] = [0.10, 0.90]
             raw = 0.40 * dim1 + 0.35 * dim2 + 0.25 * dim3
             return safe_score(raw)
 
