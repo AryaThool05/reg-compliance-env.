@@ -34,7 +34,7 @@ class RegComplianceObservation(BaseModel):
     instructions: str = ""
     context: dict = Field(default_factory=dict)
     # Satisfy openenv.core serialization (calls observation.reward / observation.done)
-    reward: float = 0.0
+    reward: float = 0.5
     done: bool = False
 
     def to_prompt(self) -> str:
