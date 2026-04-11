@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+tests/
+*.sh
+pytest_out.txt
+validate-submission.sh
+.dockerignore
+README.md
+uv.lock

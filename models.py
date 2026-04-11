@@ -1,162 +1,104 @@
 """
 Pydantic v2 models for the RegComplianceEnv OpenEnv environment.
 
-Defines the core data structures used for GDPR compliance checking:
-- Observation: input presented to the agent (regulation + policy text)
-- Action: the agent's compliance assessment output
-- Reward: scored evaluation of the agent's action
-- EnvState: tracks the current state of the environment
+Defines the three core data structures:
+- RegComplianceObservation: input presented to the agent
+- RegComplianceAction: the agent's compliance assessment output
+- RegComplianceState: tracks the current environment state
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
 # Observation
 # ---------------------------------------------------------------------------
 
-class Observation(BaseModel):
+class RegComplianceObservation(BaseModel):
     """Represents a single compliance-checking task presented to the agent.
 
-    Contains the scraped GDPR regulation text alongside the company policy
-    clause that must be evaluated for compliance violations.
+    Contains the GDPR regulation text alongside the company policy text
+    that must be evaluated for compliance violations.
     """
 
     regulation_text: str = Field(
-        ..., description="The scraped GDPR article text to check against."
+        ..., description="GDPR article text to check against."
     )
-    policy_clause: str = Field(
+    policy_text: str = Field(
         ..., description="The company policy text to evaluate for compliance."
     )
     task_id: Literal["easy", "medium", "hard"] = Field(
         ..., description="Difficulty tier of this compliance task."
     )
-    article_ref: str = Field(
-        ..., description='GDPR article reference, e.g. "Article 6".'
+    article_refs: list[str] = Field(
+        ..., description='GDPR article references, e.g. ["Article 6"].'
+    )
+    instructions: str = Field(
+        ..., description="Explicit task instructions for the LLM agent."
     )
     context: dict = Field(
         default_factory=dict,
-        description="Extra metadata (e.g. jurisdiction, sector, timestamps).",
+        description="Extra metadata (e.g. difficulty, source).",
     )
 
     def to_prompt(self) -> str:
-        """Return a clean, human-readable prompt string for LLM input."""
-        return f"""You are a GDPR compliance expert. Analyze the following and identify violations.
-
-GDPR REGULATION REFERENCE:
-{self.regulation_text[:2000]}  
-
-TASK (Article reference: {self.article_ref}):
-{self.policy_clause}
-
-Respond in this EXACT JSON format:
-{{
-  "violation_ids": ["ART6-CONSENT", "ART5-RETENTION"],
-  "severity": "high",
-  "explanation": "The policy lacks explicit consent mechanism under Art 6...",
-  "fix_suggestion": "Add explicit opt-in consent checkbox and state retention periods"
-}}
-
-Only output valid JSON. No markdown, no extra text."""
+        """Return a clean LLM prompt string. No trailing newlines in action output."""
+        articles = ", ".join(self.article_refs)
+        return (
+            f"TASK INSTRUCTIONS:\n{self.instructions}\n\n"
+            f"GDPR REFERENCE ({articles}):\n{self.regulation_text[:3000]}\n\n"
+            f"POLICY TO AUDIT:\n{self.policy_text[:2000]}\n\n"
+            "Respond with ONLY a JSON object — no markdown, no explanation outside JSON:\n"
+            '{"violation_ids": ["ART6-CONSENT"], "severity": "high", '
+            '"explanation": "...", "fix_suggestion": "..."}'
+        )
 
 
 # ---------------------------------------------------------------------------
 # Action
 # ---------------------------------------------------------------------------
 
-class Action(BaseModel):
-    """The agent's compliance assessment for a given observation.
-
-    Lists identified violations, their aggregate severity, an explanation,
-    and an optional fix suggestion.
-    """
+class RegComplianceAction(BaseModel):
+    """The agent's compliance assessment for a given observation."""
 
     violation_ids: list[str] = Field(
         default_factory=list,
-        description='List of violation identifiers, e.g. ["ART6-1", "ART13-2"].',
+        description='List of violation IDs, e.g. ["ART6-CONSENT", "ART5-RETENTION"].',
     )
     severity: Literal["none", "low", "medium", "high"] = Field(
-        ..., description="Overall severity of the identified violations."
+        default="none",
+        description="Overall severity of the identified violations.",
     )
     explanation: str = Field(
-        ..., description="Free-text explanation of the compliance assessment."
+        default="",
+        description="Brief explanation of the compliance assessment (under 200 chars).",
     )
-    fix_suggestion: str | None = Field(
-        default=None,
-        description="Optional suggestion for how to remediate the violation(s).",
+    fix_suggestion: str = Field(
+        default="",
+        description="Concrete suggestion to remediate the violations.",
     )
-
-
-# ---------------------------------------------------------------------------
-# Reward
-# ---------------------------------------------------------------------------
-
-class Reward(BaseModel):
-    """Scored evaluation of the agent's action against the ground-truth labels.
-
-    The primary ``score`` is clamped to ``[0.0, 1.0]``.  Additional metrics
-    (precision, recall, F1) allow fine-grained analysis, and ``breakdown``
-    stores per-criterion scores.
-    """
-
-    score: float = Field(
-        ..., description="Overall score clamped to [0.0, 1.0]."
-    )
-    precision: float = Field(
-        ..., description="Precision of violation identification."
-    )
-    recall: float = Field(
-        ..., description="Recall of violation identification."
-    )
-    f1: float = Field(
-        ..., description="F1 score combining precision and recall."
-    )
-    breakdown: dict[str, float] = Field(
-        default_factory=dict,
-        description="Per-criterion score breakdown (e.g. severity accuracy, explanation quality).",
-    )
-
-    @field_validator("score")
-    @classmethod
-    def score_must_be_strictly_between_zero_and_one(cls, v: float) -> float:
-        if v <= 0.0:
-            return 0.001
-        if v >= 1.0:
-            return 0.999
-        return v
 
 
 # ---------------------------------------------------------------------------
-# EnvState
+# State
 # ---------------------------------------------------------------------------
 
-class EnvState(BaseModel):
-    """Tracks the current state of the RegComplianceEnv environment.
+class RegComplianceState(BaseModel):
+    """Tracks the current state of the RegComplianceEnv environment."""
 
-    Used internally to manage the lifecycle of a compliance-checking episode,
-    including which task is active, how many steps have been taken, and
-    whether required data has been loaded.
-    """
+    task_id: str = Field(default="easy", description="Active task identifier.")
+    step_count: int = Field(default=0, description="Steps taken in current episode.")
+    done: bool = Field(default=False, description="Whether the episode has ended.")
+    episode_id: str = Field(default="", description="Unique episode identifier.")
 
-    current_task: str = Field(
-        ..., description="Identifier of the currently active task."
-    )
-    step_count: int = Field(
-        default=0, description="Number of steps taken in the current episode."
-    )
-    done: bool = Field(
-        default=False, description="Whether the current episode has concluded."
-    )
-    last_action: Action | None = Field(
-        default=None, description="The most recent action taken by the agent."
-    )
-    regulation_loaded: bool = Field(
-        default=False, description="Whether GDPR regulation data has been loaded."
-    )
-    policy_loaded: bool = Field(
-        default=False, description="Whether company policy data has been loaded."
-    )
+
+# ---------------------------------------------------------------------------
+# Backward-compat aliases (for old code that uses Observation / Action)
+# ---------------------------------------------------------------------------
+
+Observation = RegComplianceObservation
+Action = RegComplianceAction

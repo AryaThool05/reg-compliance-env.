@@ -12,51 +12,62 @@ action_space:
       type: array
       items:
         type: string
-      description: "List of violation identifiers found (e.g. ART6-CONSENT)"
+      description: "List of violation IDs found (e.g. ART6-CONSENT, ART5-RETENTION)"
     severity:
       type: string
       enum: ["none", "low", "medium", "high"]
     explanation:
       type: string
+      description: "Brief explanation of violations (under 200 chars)"
     fix_suggestion:
       type: string
-      nullable: true
+      description: "Concrete remediation suggestion (under 200 chars)"
 
 observation_space:
   type: object
   properties:
     regulation_text:
       type: string
-    policy_clause:
+      description: "GDPR article text relevant to the task"
+    policy_text:
       type: string
+      description: "The company privacy policy to audit"
     task_id:
       type: string
-    article_ref:
+      enum: ["easy", "medium", "hard"]
+    article_refs:
+      type: array
+      items:
+        type: string
+      description: "List of GDPR article references relevant to the task"
+    instructions:
       type: string
+      description: "Explicit task instructions for the LLM agent"
     context:
       type: object
+      description: "Extra metadata about the task"
 
 tasks:
   - id: easy
-    name: "Single clause violation check"
-    description: "Check one policy clause against GDPR Article 6"
+    name: "Single GDPR clause check"
+    description: "Check one policy clause against GDPR Article 6 lawful basis"
     difficulty: easy
     max_steps: 1
     success_threshold: 0.5
   - id: medium
     name: "Full privacy policy GDPR audit"
-    description: "Audit entire privacy policy against GDPR Articles 5, 6, 13"
+    description: "Audit an entire privacy policy against GDPR Articles 5, 6, 13"
     difficulty: medium
     max_steps: 1
     success_threshold: 0.5
   - id: hard
     name: "Policy version delta and remediation"
-    description: "Compare two policy versions, find fixed/new violations, suggest fixes"
+    description: "Compare two policy versions, find remaining violations, suggest fixes"
     difficulty: hard
     max_steps: 1
     success_threshold: 0.5
 
 reward:
-  min: 0.0
-  max: 1.0
-  description: "F1-based score with partial credit for precision and recall"
+  min: 0.05
+  max: 0.95
+  description: "safe_score-bounded reward in (0.05, 0.95) exclusive of 0.0 and 1.0"

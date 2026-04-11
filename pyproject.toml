@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-  {name = "Arya Thool", email = "[EMAIL_ADDRESS]"}
+  {name = "Arya Thool"}
 ]
 keywords = ["openenv", "gdpr", "compliance", "rl", "agent"]
 classifiers = [
@@ -21,26 +21,27 @@ classifiers = [
 dependencies = [
   "openai>=1.0.0",
   "pydantic>=2.0.0",
-  "firecrawl-py>=0.0.16",
   "fastapi>=0.104.0",
   "uvicorn>=0.24.0",
+  "openenv-core",
   "pyyaml>=6.0",
   "httpx>=0.25.0",
   "python-multipart>=0.0.6",
-  "openenv-core",
+  "python-dotenv>=1.0.0",
 ]
 
 [project.urls]
 Homepage = "https://huggingface.co/spaces/aryathool3/reg-compliance-env"
-Repository = "https://github.com/AryaThool05/reg-compliance-env..git"
+Repository = "https://github.com/AryaThool05/reg-compliance-env"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["reg_compliance_env*", "tasks*", "graders*"]
-
-[tool.openenv]
-environment = "reg_compliance_env"
-server_dir = "server"
 
 [project.scripts]
 server = "server.app:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
