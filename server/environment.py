@@ -139,17 +139,33 @@ class StepResult:
 # Grading utility
 # ---------------------------------------------------------------------------
 
-def safe_score(s: float) -> float:
-    """Score MUST be strictly between 0.0 and 1.0 exclusive (0.05 floor, 0.95 ceiling)."""
+def safe_score(s) -> float:
+    """
+    STRICT: score must be > 0.0 AND < 1.0.
+    0.0 and 1.0 are both INVALID — Phase 2 validator rejects them.
+    Double-guarded: boundary checked before AND after rounding.
+    """
     try:
         s = float(s)
     except Exception:
         return 0.05
+    # NaN and ±inf must be caught first — NaN comparisons always return False
+    import math
+    if not math.isfinite(s):
+        return 0.95 if s > 0 else 0.05
+    # Pre-rounding boundary check
     if s <= 0.0:
         return 0.05
     if s >= 1.0:
         return 0.95
-    return round(s, 4)
+    # Round to 4 decimal places — can shift 0.99995 → 1.0
+    result = round(s, 4)
+    # Post-rounding boundary check (float precision safety)
+    if result <= 0.0:
+        return 0.05
+    if result >= 1.0:
+        return 0.95
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -299,14 +315,20 @@ class RegComplianceEnvironment:
             self._step_count += 1
             self._done = True
 
-            score = self._grade(action)
+            raw_score = self._grade(action)
+            # Double-apply safe_score — belt AND suspenders
+            final_score = safe_score(safe_score(raw_score))
+            # Emergency fallback: if somehow still on boundary, force-fix
+            if final_score <= 0.0 or final_score >= 1.0:
+                final_score = 0.42
+
             obs = self._build_observation(self._current_task)
 
             return StepResult(
                 observation=obs,
-                reward=safe_score(score),
+                reward=final_score,
                 done=True,
-                info={"task": self._current_task, "score": safe_score(score)},
+                info={"task": self._current_task, "score": final_score},
             )
 
         except Exception as exc:
@@ -320,45 +342,85 @@ class RegComplianceEnvironment:
             )
 
     def _grade(self, action: RegComplianceAction) -> float:
-        """Score the action against the current task. Always returns safe_score result."""
+        """Score the action. Every path anchored away from 0.0 and 1.0 boundaries."""
         violations = [v.upper() for v in (action.violation_ids or [])]
 
         if self._current_task == "easy":
-            found = any(
+            # Base always 0.05 — guarantees never 0.0
+            found_violation = any(
                 kw in v for v in violations
-                for kw in ("ART6", "CONSENT", "LAWFUL", "BASIS")
+                for kw in ("ART6", "CONSENT", "LAWFUL", "GDPR", "BASIS")
             )
-            base = 0.45 if found else 0.05
-            has_explanation = 0.45 if action.explanation and len(action.explanation) > 10 else 0.05
-            return safe_score(base + has_explanation)
+            has_explanation = (
+                bool(action.explanation)
+                and len(action.explanation.strip()) > 5
+            )
+            score = 0.05  # floor — never 0.0
+            if found_violation:
+                score += 0.45
+            if has_explanation:
+                score += 0.40
+            if action.violation_ids:  # any violation submitted at all
+                score += 0.05
+            # Range: 0.05 (nothing) → 0.95 (all three) — boundaries unreachable
+            return safe_score(score)
 
         elif self._current_task == "medium":
-            concept_groups = [
+            if not violations:
+                return 0.05  # explicit: no violations = floor, not 0.0
+
+            concepts = [
                 ("ART5", "PURPOSE", "MINIMIS", "RETENTION", "STORAGE"),
-                ("ART6", "LAWFUL", "CONSENT", "BASIS"),
-                ("ART13", "TRANSPARENT", "INFORM", "DISCLOS"),
-                ("ART17", "ERASURE", "DELET", "FORGET"),
+                ("ART6", "LAWFUL", "CONSENT", "BASIS", "PROCESS"),
+                ("ART13", "TRANSPARENT", "INFORM", "NOTICE", "DISCLOS"),
+                ("ART17", "ERASURE", "DELET", "REMOV", "FORGET"),
             ]
             matched = sum(
-                1 for kws in concept_groups
+                1 for kws in concepts
                 if any(any(kw in v for kw in kws) for v in violations)
             )
-            total = len(concept_groups)
-            recall = matched / total if total else 0.05
+            # recall: protected minimum 0.05 — never 0.0
+            recall = max(0.05, matched / len(concepts))
+
             valid = sum(
                 1 for v in violations
-                if any(any(kw in v for kw in kws) for kws in concept_groups)
+                if any(any(kw in v for kw in kws) for kws in concepts)
             )
-            precision = valid / len(violations) if violations else 0.05
-            f1 = (2 * precision * recall / (precision + recall)
-                  if (precision + recall) > 0 else 0.05)
-            return safe_score(f1 * 0.90 + 0.05)
+            # precision: protected minimum 0.05 — never 0.0
+            precision = max(0.05, valid / len(violations))
+
+            f1 = 2 * precision * recall / (precision + recall)
+            # Map f1 [0,1] → [0.08, 0.92] — mathematically impossible to hit boundaries
+            score = 0.08 + (f1 * 0.84)
+            return safe_score(score)
 
         else:  # hard
-            has_violations = 0.85 if len(violations) >= 2 else 0.25
-            has_fix = 0.85 if action.fix_suggestion and len(action.fix_suggestion) > 50 else 0.20
-            has_explanation = 0.85 if action.explanation and len(action.explanation) > 50 else 0.20
-            raw = 0.40 * has_violations + 0.35 * has_fix + 0.25 * has_explanation
+            # Each dimension: minimum 0.10, maximum 0.90 — boundaries unreachable
+            if len(violations) >= 3:
+                dim1 = 0.90
+            elif len(violations) >= 1:
+                dim1 = 0.55
+            else:
+                dim1 = 0.10  # not 0.0
+
+            fix_len = len(action.fix_suggestion.strip()) if action.fix_suggestion else 0
+            if fix_len > 100:
+                dim2 = 0.90
+            elif fix_len > 30:
+                dim2 = 0.55
+            else:
+                dim2 = 0.10  # not 0.0
+
+            exp_len = len(action.explanation.strip()) if action.explanation else 0
+            if exp_len > 100:
+                dim3 = 0.90
+            elif exp_len > 30:
+                dim3 = 0.55
+            else:
+                dim3 = 0.10  # not 0.0
+
+            # raw range: [0.10, 0.90] — mathematically impossible to reach 0 or 1
+            raw = 0.40 * dim1 + 0.35 * dim2 + 0.25 * dim3
             return safe_score(raw)
 
     @property
