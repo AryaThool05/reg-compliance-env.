@@ -140,7 +140,7 @@ async def reset(request: Optional[ResetRequest] = None):
                 "article_refs": ["Article 6"],
                 "instructions": "Identify GDPR violations in the policy text.",
                 "context": {"error": str(exc)[:200], "source": "error_fallback"},
-                "reward": 0.0,
+                "reward": 0.05,
                 "done": False,
             },
             status_code=200,

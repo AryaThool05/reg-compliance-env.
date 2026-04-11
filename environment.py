@@ -103,9 +103,9 @@ def compute_reward(action: Action, ground_truth: dict[str, Any], task_id: str) -
     if len(fp) > 5:
         score -= 0.15
 
-    score = max(0.0, min(1.0, score))
+    score = max(0.05, min(0.95, score))
 
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.05
 
     return Reward(
         score=score,
