@@ -94,9 +94,16 @@ class TestRegComplianceAction:
             action = RegComplianceAction(severity=sev)
             assert action.severity == sev
 
-    def test_severity_enum_invalid_raises(self) -> None:
-        with pytest.raises(Exception):
-            RegComplianceAction(severity="critical")
+    def test_severity_accepts_any_string(self) -> None:
+        """severity is plain str (not Literal) to prevent framework validation errors."""
+        # Must accept standard values
+        for sev in ["none", "low", "medium", "high"]:
+            action = RegComplianceAction(severity=sev)
+            assert action.severity == sev
+        # Must also accept non-standard values (framework may send unexpected data)
+        action = RegComplianceAction(severity="critical")
+        assert action.severity == "critical"  # no raise, just stored
+
 
 
 class TestRegComplianceState:
