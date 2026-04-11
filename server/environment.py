@@ -266,3 +266,18 @@ class RegComplianceEnvironment(Environment):
             done=self._done,
             episode_id=self._episode_id,
         )
+
+    # ---- openenv.core required interface methods --------------------------
+
+    def close(self) -> None:
+        """Required by openenv.core Environment base class."""
+        pass
+
+    async def reset_async(self, **kwargs: Any) -> RegComplianceObservation:
+        """Required by openenv.core Environment base class."""
+        task = kwargs.get("task", kwargs.get("task_id", "easy"))
+        return self.reset(task=task)
+
+    async def step_async(self, action: Any = None, **kwargs: Any) -> StepResult:
+        """Required by openenv.core Environment base class."""
+        return self.step(action)
