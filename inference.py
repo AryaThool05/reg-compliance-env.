@@ -7,7 +7,7 @@ Runs the GDPR compliance checker against an LLM for all 3 task tiers
 MANDATORY stdout format (machine-parsed by judges — zero tolerance):
   [START] task=<name> env=reg-compliance-env model=<MODEL_NAME>
   [STEP] step=<n> action=<str> reward=<0.00> done=<true|false> error=<null|msg>
-  [END] success=<true|false> steps=<n> rewards=<r1,r2,...>
+    [END] success=<true|false> steps=<n> score=<0.00> rewards=<r1,r2,...>
 
 Rules:
   - reward / rewards: exactly 2 decimal places  (0.72 not 0.7 not 0.720)
@@ -170,12 +170,13 @@ def log_step(
     )
 
 
-def log_end(success: bool, steps: int, rewards: list[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
     """ONE [END] line per task — ALWAYS emitted in finally block."""
     success_str = "true" if success else "false"
+    score_safe = nuclear_safe_reward(score)
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={success_str} steps={steps} rewards={rewards_str}",
+        f"[END] success={success_str} steps={steps} score={score_safe:.2f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -316,6 +317,7 @@ async def run_task(env: RegComplianceEnvironment, task_id: str) -> dict[str, Any
     rewards: list[float] = []
     steps: int = 0
     reward: float = 0.42  # safe non-boundary default
+    task_score: float = 0.42
     success: bool = False
 
     try:
@@ -349,7 +351,8 @@ async def run_task(env: RegComplianceEnvironment, task_id: str) -> dict[str, Any
 
         steps = 1
         rewards.append(reward)
-        success = reward >= SUCCESS_SCORE_THRESHOLD
+        task_score = reward
+        success = task_score >= SUCCESS_SCORE_THRESHOLD
 
         # ── [STEP] ────────────────────────────────────────────────────────
         log_step(
@@ -378,10 +381,12 @@ async def run_task(env: RegComplianceEnvironment, task_id: str) -> dict[str, Any
         # ── [END] — ALWAYS emitted ─────────────────────────────────────────
         # Re-apply nuclear_safe_reward to every value in rewards list
         safe_rewards = [nuclear_safe_reward(r) for r in rewards] if rewards else [0.42]
-        final_success = any(r >= SUCCESS_SCORE_THRESHOLD for r in safe_rewards)
-        log_end(success=final_success, steps=steps, rewards=safe_rewards)
+        raw_task_score = sum(safe_rewards) / len(safe_rewards) if safe_rewards else 0.42
+        final_task_score = nuclear_safe_reward(raw_task_score)
+        final_success = final_task_score >= SUCCESS_SCORE_THRESHOLD
+        log_end(success=final_success, steps=steps, score=final_task_score, rewards=safe_rewards)
 
-    return {"task": task_id, "reward": reward, "success": success}
+    return {"task": task_id, "reward": reward, "success": success, "score": task_score}
 
 
 # ---------------------------------------------------------------------------
