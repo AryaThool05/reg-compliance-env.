@@ -4,8 +4,8 @@ Pydantic v2 models for the RegComplianceEnv OpenEnv environment.
 ALL fields have default values so models can be instantiated with zero
 arguments. This prevents crashes in fallback/error paths.
 
-CRITICAL: openenv-core calls .model_dump() on whatever reset() returns,
-so every return value must be a Pydantic BaseModel instance, never a dict.
+reward + done added to RegComplianceObservation to satisfy any openenv.core
+serialization that calls observation.reward / observation.done.
 """
 
 from __future__ import annotations
@@ -22,6 +22,9 @@ class RegComplianceObservation(BaseModel):
 
     ALL fields have defaults so this can safely be constructed with zero
     arguments in error/fallback paths.
+
+    reward and done are included to satisfy openenv.core serialize_observation()
+    which may call observation.reward and observation.done.
     """
 
     regulation_text: str = ""
@@ -30,9 +33,12 @@ class RegComplianceObservation(BaseModel):
     article_refs: list[str] = Field(default_factory=list)
     instructions: str = ""
     context: dict = Field(default_factory=dict)
+    # Satisfy openenv.core serialization (calls observation.reward / observation.done)
+    reward: float = 0.0
+    done: bool = False
 
     def to_prompt(self) -> str:
-        """Return a clean LLM prompt string. No trailing newlines in action output."""
+        """Return a clean LLM prompt string."""
         articles = ", ".join(self.article_refs) if self.article_refs else "GDPR"
         return (
             f"TASK INSTRUCTIONS:\n{self.instructions}\n\n"
@@ -51,9 +57,8 @@ class RegComplianceObservation(BaseModel):
 class RegComplianceAction(BaseModel):
     """The agent's compliance assessment for a given observation.
 
-    ALL fields have defaults so this can work as a no-op fallback.
-    severity is plain str (not Literal) to avoid validation failures from
-    unexpected values sent by the framework or external callers.
+    ALL fields have defaults. severity is plain str (not Literal) to avoid
+    validation failures from unexpected values sent by the framework.
     """
 
     violation_ids: list[str] = Field(default_factory=list)
