@@ -89,6 +89,22 @@ class StepRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Safe Score Helper
+# ---------------------------------------------------------------------------
+
+def _safe(r: float) -> float:
+    """Ensure reward is strictly between 0.0 and 1.0."""
+    try:
+        r = float(r)
+    except Exception:
+        return 0.05
+    if r <= 0.0:
+        return 0.05
+    if r >= 1.0:
+        return 0.95
+    return r
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -105,54 +121,42 @@ async def health():
 
 @app.post("/reset")
 async def reset(request: Optional[ResetRequest] = None):
-    """Reset the environment and return the initial observation.
-
-    Always returns HTTP 200 — never 500. Errors become fallback observations.
-    """
+    """Reset the environment and return the initial observation."""
     try:
-        # Resolve task from body (supports both "task" and "task_id" keys)
+        # Resolve task from body
         task = "easy"
         if request is not None:
             task = request.task_id or request.task or "easy"
         if task not in ("easy", "medium", "hard"):
             task = "easy"
 
-        # reset() returns a RegComplianceObservation Pydantic model
         obs = _env.reset(task=task)
 
         if hasattr(obs, "model_dump"):
             return JSONResponse(content=obs.model_dump(), status_code=200)
-        # Shouldn't happen, but handle dict fallback gracefully
         return JSONResponse(content=obs if isinstance(obs, dict) else {}, status_code=200)
 
     except Exception as exc:
-        # NEVER return 500 — always return 200 with safe fallback content
-        return JSONResponse(
-            content={
-                "regulation_text": (
-                    "Article 6: Processing shall be lawful only if consent given or "
-                    "another legal basis applies."
-                ),
-                "policy_text": (
-                    "We share your personal data with partners without explicit consent."
-                ),
+        return JSONResponse(content={
+            "observation": {
+                "regulation_text": "GDPR compliance environment",
+                "policy_text": "",
                 "task_id": "easy",
                 "article_refs": ["Article 6"],
-                "instructions": "Identify GDPR violations in the policy text.",
-                "context": {"error": str(exc)[:200], "source": "error_fallback"},
-                "reward": 0.05,
-                "done": False,
+                "instructions": "Identify GDPR violations",
+                "context": {},
+                "reward": 0.5,
+                "done": False
             },
-            status_code=200,
-        )
+            "reward": 0.05,       
+            "done": True,
+            "info": {"error": str(exc)[:200]}
+        }, status_code=200)
 
 
 @app.post("/step")
 async def step(request: StepRequest):
-    """Submit an action and receive reward/done/info.
-
-    Always returns HTTP 200.
-    """
+    """Submit an action and receive reward/done/info."""
     try:
         action = RegComplianceAction(
             violation_ids=request.violation_ids,
@@ -162,17 +166,18 @@ async def step(request: StepRequest):
         )
         result = _env.step(action)
 
-        # result is a StepResult with .observation, .reward, .done, .info
         obs = getattr(result, "observation", None)
         obs_dict = (
             obs.model_dump() if hasattr(obs, "model_dump")
             else (obs if isinstance(obs, dict) else {})
         )
 
+        reward = _safe(float(getattr(result, 'reward', 0.05)))
+
         return JSONResponse(
             content={
                 "observation": obs_dict,
-                "reward": float(getattr(result, "reward", 0.05)),
+                "reward": reward,
                 "done": bool(getattr(result, "done", True)),
                 "info": getattr(result, "info", {}),
             },
@@ -180,22 +185,28 @@ async def step(request: StepRequest):
         )
 
     except Exception as exc:
-        return JSONResponse(
-            content={
-                "observation": {},
-                "reward": 0.05,
-                "done": True,
-                "info": {"error": str(exc)[:200]},
+        return JSONResponse(content={
+            "observation": {
+                "regulation_text": "GDPR compliance environment",
+                "policy_text": "",
+                "task_id": "easy",
+                "article_refs": ["Article 6"],
+                "instructions": "Identify GDPR violations",
+                "context": {},
+                "reward": 0.5,
+                "done": False
             },
-            status_code=200,
-        )
+            "reward": 0.05,       
+            "done": True,
+            "info": {"error": str(exc)[:200]}
+        }, status_code=200)
 
 
 @app.get("/state")
 async def state():
-    """Return current environment state. Always returns HTTP 200."""
+    """Return current environment state."""
     try:
-        s = _env.state  # property — returns RegComplianceState Pydantic model
+        s = _env.state 
         if hasattr(s, "model_dump"):
             return JSONResponse(content=s.model_dump(), status_code=200)
         return JSONResponse(
@@ -203,16 +214,14 @@ async def state():
             status_code=200,
         )
     except Exception as exc:
-        return JSONResponse(
-            content={
-                "task_id": "easy",
-                "step_count": 0,
-                "done": False,
-                "episode_id": "",
-                "error": str(exc)[:200],
-            },
-            status_code=200,
-        )
+        return JSONResponse(content={
+            "task_id": "easy",
+            "step_count": 0,
+            "done": False,
+            "episode_id": "",
+            "error": str(exc)[:200],
+            "reward": 0.05,
+        }, status_code=200)
 
 
 # ---------------------------------------------------------------------------

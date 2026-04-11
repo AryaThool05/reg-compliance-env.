@@ -145,31 +145,16 @@ class StepResult:
 # ---------------------------------------------------------------------------
 
 def safe_score(s) -> float:
-    """
-    STRICT: score must be > 0.0 AND < 1.0.
-    0.0 and 1.0 are both INVALID — Phase 2 validator rejects them.
-    Double-guarded: NaN/inf handled, boundary checked before and after rounding.
-    """
+    """Score MUST be strictly between 0.0 and 1.0 exclusive."""
     try:
         s = float(s)
     except Exception:
         return 0.05
-    # NaN and ±inf: must be caught before comparisons (NaN comparisons always False)
-    if not math.isfinite(s):
-        return 0.95 if s > 0 else 0.05
-    # Pre-rounding boundary check
     if s <= 0.0:
         return 0.05
     if s >= 1.0:
         return 0.95
-    # Round to 4dp — can shift 0.99995 → 1.0
-    result = round(s, 4)
-    # Post-rounding boundary check
-    if result <= 0.0:
-        return 0.05
-    if result >= 1.0:
-        return 0.95
-    return result
+    return round(s, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -319,20 +304,17 @@ class RegComplianceEnvironment:
             self._step_count += 1
             self._done = True
 
-            raw_score = self._grade(action)
-            # Double-apply safe_score — belt AND suspenders
-            final_score = safe_score(safe_score(raw_score))
-            # Emergency fallback: if somehow still on boundary, force-fix
-            if final_score <= 0.0 or final_score >= 1.0:
-                final_score = 0.42
-
+            final_reward = safe_score(self._grade(action))
+            if final_reward <= 0.0 or final_reward >= 1.0:
+                final_reward = 0.05  # absolute emergency fallback
+            
             obs = self._build_observation(self._current_task)
 
             return StepResult(
                 observation=obs,
-                reward=final_score,
+                reward=final_reward,
                 done=True,
-                info={"task": self._current_task, "score": final_score},
+                info={"task": self._current_task, "score": final_reward}
             )
 
         except Exception as exc:
